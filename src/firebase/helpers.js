@@ -22,6 +22,12 @@ export const getWorkoutPlans = async (uid) => {
 export const saveWorkoutPlan = (uid, planId, data) =>
   setDoc(doc(db, 'users', uid, 'workoutPlans', planId), data, { merge: false });
 
+export const addWorkoutPlan = (uid, data) =>
+  addDoc(collection(db, 'users', uid, 'workoutPlans'), data);
+
+export const deleteWorkoutPlan = (uid, planId) =>
+  deleteDoc(doc(db, 'users', uid, 'workoutPlans', planId));
+
 // ── Logi treningowe ──────────────────────────────────────────
 
 export const getWorkoutLog = async (uid, weekId, planId) => {
@@ -61,6 +67,12 @@ export const getInProgressLog = async (uid, weekId) => {
 
 export const updateWorkoutLog = (uid, weekId, logId, data) =>
   updateDoc(doc(db, 'users', uid, 'workoutLogs', weekId, 'logs', logId), data);
+
+export const deleteWorkoutLog = (uid, weekId, logId) =>
+  deleteDoc(doc(db, 'users', uid, 'workoutLogs', weekId, 'logs', logId));
+
+export const addWorkoutLogToWeek = (uid, weekId, data) =>
+  addDoc(collection(db, 'users', uid, 'workoutLogs', weekId, 'logs'), data);
 
 export const getWeekLogs = async (uid, weekId) => {
   const snap = await getDocs(

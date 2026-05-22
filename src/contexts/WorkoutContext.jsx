@@ -2,22 +2,16 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { serverTimestamp } from 'firebase/firestore';
 import { useAuth } from './AuthContext';
 import {
-  getWorkoutPlans, saveWorkoutPlan,
+  getWorkoutPlans, saveWorkoutPlan, addWorkoutPlan, deleteWorkoutPlan,
   getWorkoutLog, createWorkoutLog, updateWorkoutLog,
   getInProgressLog, getISOWeekId, getPrevWeekId,
 } from '../firebase/helpers';
 
 const WorkoutContext = createContext(null);
 
-const DEFAULT_PLANS = [
-  { id: 'A', name: 'Trening A', exercises: [] },
-  { id: 'B', name: 'Trening B', exercises: [] },
-  { id: 'C', name: 'Trening C', exercises: [] },
-];
-
 export function WorkoutProvider({ children }) {
   const { user } = useAuth();
-  const [plans, setPlans]               = useState(DEFAULT_PLANS);
+  const [plans, setPlans]               = useState([]);
   const [plansLoading, setPlansLoading] = useState(true);
   const [activeLog, setActiveLog]       = useState(null);
   const [logRef, setLogRef]             = useState(null);
@@ -29,9 +23,11 @@ export function WorkoutProvider({ children }) {
     if (!user) return;
     getWorkoutPlans(user.uid).then(async (loaded) => {
       if (loaded.length) {
-        const sorted = ['A', 'B', 'C'].map(id =>
-          loaded.find(p => p.id === id) ?? DEFAULT_PLANS.find(p => p.id === id)
-        );
+        const legacyOrder = ['A', 'B', 'C'];
+        const sorted = [
+          ...legacyOrder.map(id => loaded.find(p => p.id === id)).filter(Boolean),
+          ...loaded.filter(p => !legacyOrder.includes(p.id)),
+        ];
         setPlans(sorted);
       }
       setPlansLoading(false);
@@ -51,6 +47,21 @@ export function WorkoutProvider({ children }) {
     if (!user) return;
     await saveWorkoutPlan(user.uid, planId, data);
     setPlans(prev => prev.map(p => p.id === planId ? { ...p, ...data } : p));
+  }, [user]);
+
+  const createPlan = useCallback(async (name) => {
+    if (!user) return null;
+    const data = { name, exercises: [] };
+    const ref = await addWorkoutPlan(user.uid, data);
+    const newPlan = { id: ref.id, ...data };
+    setPlans(prev => [...prev, newPlan]);
+    return ref.id;
+  }, [user]);
+
+  const deletePlan = useCallback(async (planId) => {
+    if (!user) return;
+    await deleteWorkoutPlan(user.uid, planId);
+    setPlans(prev => prev.filter(p => p.id !== planId));
   }, [user]);
 
   const startWorkout = useCallback(async (planId, date = new Date()) => {
@@ -178,7 +189,7 @@ export function WorkoutProvider({ children }) {
 
   return (
     <WorkoutContext.Provider value={{
-      plans, plansLoading, savePlan,
+      plans, plansLoading, savePlan, createPlan, deletePlan,
       activeLog, exIdx, currentPlan,
       isActive: !!activeLog,
       startWorkout,

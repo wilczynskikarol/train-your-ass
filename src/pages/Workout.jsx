@@ -169,10 +169,18 @@ export function Workout() {
   const location = useLocation();
   const isIron = t.key === 'iron';
 
-  const { plans, plansLoading, isActive, startWorkout } = useWorkout();
+  const { plans, plansLoading, isActive, startWorkout, createPlan } = useWorkout();
   const [editingPlanId, setEditingPlanId] = useState(null);
   const [starting, setStarting] = useState(false);
   const [startingPlan, setStartingPlan] = useState(null);
+  const [creating, setCreating] = useState(false);
+
+  const handleNewPlan = async () => {
+    setCreating(true);
+    const id = await createPlan(`Trening ${plans.length + 1}`);
+    setCreating(false);
+    if (id) setEditingPlanId(id);
+  };
 
   useEffect(() => {
     if (location.state?.planId && !isActive && !plansLoading) {
@@ -220,7 +228,7 @@ export function Workout() {
           Wybierz plan na dziś
         </p>
 
-        {plansLoading || starting ? (
+        {plansLoading || starting || creating ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
             <div style={{
               width: 32, height: 32,
@@ -233,6 +241,17 @@ export function Workout() {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {plans.length === 0 && (
+              <div style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                padding: '48px 0', color: t.inkMute,
+              }}>
+                <Icon name="barbell" size={36} stroke={1.4} />
+                <p style={{ fontFamily: t.fontUI, fontSize: 14, marginTop: 12, marginBottom: 0 }}>
+                  Brak planów — dodaj swój pierwszy
+                </p>
+              </div>
+            )}
             {plans.map(plan => (
               <PlanCard
                 key={plan.id}
@@ -243,6 +262,10 @@ export function Workout() {
                 isIron={isIron}
               />
             ))}
+            <Button variant="outline" size="md" onClick={handleNewPlan} style={{ width: '100%' }}>
+              <Icon name="plus" size={16} stroke={2.5} />
+              {isIron ? 'NOWY PLAN' : 'Nowy plan'}
+            </Button>
           </div>
         )}
       </div>

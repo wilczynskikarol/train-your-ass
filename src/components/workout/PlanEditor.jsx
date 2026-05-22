@@ -212,13 +212,14 @@ function ExercisePickerSheet({ onAdd, onClose, t, isIron }) {
 export function PlanEditor({ planId, onDone }) {
   const { tokens: t } = useTheme();
   const isIron = t.key === 'iron';
-  const { plans, savePlan } = useWorkout();
+  const { plans, savePlan, deletePlan } = useWorkout();
 
   const plan = plans.find(p => p.id === planId);
   const [exercises, setExercises] = useState(plan?.exercises ?? []);
   const [name, setName] = useState(plan?.name ?? `Trening ${planId}`);
   const [showPicker, setShowPicker] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const handleAdd = (ex) => {
     setExercises(prev => [...prev, ex]);
@@ -242,6 +243,11 @@ export function PlanEditor({ planId, onDone }) {
     setSaving(true);
     await savePlan(planId, { id: planId, name, exercises });
     setSaving(false);
+    onDone();
+  };
+
+  const handleDelete = async () => {
+    await deletePlan(planId);
     onDone();
   };
 
@@ -340,6 +346,46 @@ export function PlanEditor({ planId, onDone }) {
         <Button variant="accent" size="lg" onClick={handleSave} disabled={saving} style={{ width: '100%' }}>
           {isIron ? 'ZAPISZ PLAN' : 'Zapisz plan'}
         </Button>
+        {!confirmDelete ? (
+          <button
+            onClick={() => setConfirmDelete(true)}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontFamily: t.fontUI, fontSize: 13, color: t.warn,
+              padding: '4px 0', alignSelf: 'center',
+            }}
+          >
+            {isIron ? 'USUŃ PLAN' : 'Usuń plan'}
+          </button>
+        ) : (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontFamily: t.fontUI, fontSize: 13, color: t.inkMid }}>
+              Na pewno?
+            </span>
+            <button
+              onClick={handleDelete}
+              style={{
+                background: t.warn, border: 'none', cursor: 'pointer',
+                fontFamily: t.fontUI, fontSize: 13, fontWeight: 700,
+                color: '#fff', borderRadius: t.radiusInput,
+                padding: '6px 14px',
+              }}
+            >
+              {isIron ? 'TAK, USUŃ' : 'Tak, usuń'}
+            </button>
+            <button
+              onClick={() => setConfirmDelete(false)}
+              style={{
+                background: 'none', border: `1px solid ${t.border}`, cursor: 'pointer',
+                fontFamily: t.fontUI, fontSize: 13,
+                color: t.inkMid, borderRadius: t.radiusInput,
+                padding: '6px 14px',
+              }}
+            >
+              Anuluj
+            </button>
+          </div>
+        )}
       </div>
 
       {showPicker && (

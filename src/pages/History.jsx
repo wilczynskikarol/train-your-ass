@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
+import { Timestamp } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useExercises } from '../hooks/useExercises';
-import { getWeekLogs, getISOWeekId, getPrevWeekId, getWeekLabel } from '../firebase/helpers';
+import {
+  getWeekLogs, getISOWeekId, getPrevWeekId, getWeekLabel,
+  updateWorkoutLog, deleteWorkoutLog, addWorkoutLogToWeek,
+} from '../firebase/helpers';
 import { Screen } from '../components/ui/Screen';
 import { Icon } from '../components/ui/Icon';
 
@@ -29,25 +33,137 @@ function SetChip({ set, t, isIron }) {
   );
 }
 
-function LogCard({ log, t, isIron, getById }) {
+function LogCard({ log, weekId, uid, t, isIron, getById, onDelete, onUpdate }) {
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editDate, setEditDate] = useState('');
+  const [editExercises, setEditExercises] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
+
   const doneSets = (log.exercises ?? []).reduce((acc, ex) =>
     acc + (ex.sets ?? []).filter(s => s.done).length, 0);
 
+  const logDate = (log.activityDate ?? log.date)?.toDate?.();
+  const dateStr = logDate ? logDate.toISOString().slice(0, 10) : '';
+
+  const openEdit = () => {
+    setEditDate(dateStr);
+    setEditExercises(JSON.parse(JSON.stringify(log.exercises ?? [])));
+    setConfirmDel(false);
+    setEditing(true);
+  };
+
+  const cancelEdit = () => {
+    setEditing(false);
+    setConfirmDel(false);
+  };
+
+  const saveEdit = async () => {
+    if (!editDate) return;
+    setSaving(true);
+    try {
+      const newDate = new Date(editDate + 'T12:00:00');
+      const newWeekId = getISOWeekId(newDate);
+      const activityDate = Timestamp.fromDate(newDate);
+
+      if (newWeekId !== weekId) {
+        const { id: _id, ...logData } = log;
+        await addWorkoutLogToWeek(uid, newWeekId, {
+          ...logData,
+          exercises: editExercises,
+          activityDate,
+        });
+        await deleteWorkoutLog(uid, weekId, log.id);
+        onDelete(log.id);
+      } else {
+        await updateWorkoutLog(uid, weekId, log.id, { exercises: editExercises, activityDate });
+        onUpdate(log.id, { ...log, exercises: editExercises, activityDate });
+        setEditing(false);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setSaving(true);
+    try {
+      await deleteWorkoutLog(uid, weekId, log.id);
+      onDelete(log.id);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateSet = (exIdx, setIdx, field, val) => {
+    setEditExercises(prev => {
+      const next = JSON.parse(JSON.stringify(prev));
+      next[exIdx].sets[setIdx][field] = val === '' ? '' : (isNaN(Number(val)) ? val : Number(val));
+      return next;
+    });
+  };
+
+  const removeSet = (exIdx, setIdx) => {
+    setEditExercises(prev => {
+      const next = JSON.parse(JSON.stringify(prev));
+      next[exIdx].sets = next[exIdx].sets.filter((_, i) => i !== setIdx);
+      return next;
+    });
+  };
+
+  const addSet = (exIdx) => {
+    setEditExercises(prev => {
+      const next = JSON.parse(JSON.stringify(prev));
+      const ex = next[exIdx];
+      const last = ex.sets[ex.sets.length - 1];
+      const isCardio = last?.duration !== undefined;
+      ex.sets.push(isCardio
+        ? { duration: '', speed: '', incline: '', done: false }
+        : { weight: '', reps: '', done: false });
+      return next;
+    });
+  };
+
+  const inp = {
+    fontFamily: t.fontNum, fontSize: 14,
+    background: t.bgSubtle, border: `1px solid ${t.border}`,
+    borderRadius: t.radiusInput, color: t.ink,
+    padding: '6px 8px', outline: 'none',
+    width: 62, textAlign: 'center',
+  };
+
+  const iconBtnBase = {
+    display: 'flex', alignItems: 'center', gap: 5,
+    padding: '6px 12px', borderRadius: isIron ? 3 : 8,
+    border: `1px solid ${t.border}`, background: 'none',
+    cursor: 'pointer', fontFamily: t.fontUI, fontSize: 12,
+    color: t.inkMid, WebkitTapHighlightColor: 'transparent',
+  };
+
+  const spinner = (
+    <div style={{
+      width: 14, height: 14,
+      border: `2px solid currentColor`,
+      borderTopColor: 'transparent',
+      borderRadius: '50%',
+      animation: 'tya-spin 0.7s linear infinite',
+      flexShrink: 0,
+    }} />
+  );
+
   return (
     <div style={{
-      background: t.surface,
-      borderRadius: t.radiusCard,
-      border: `1px solid ${t.border}`,
-      boxShadow: t.shadowSm,
+      background: t.surface, borderRadius: t.radiusCard,
+      border: `1px solid ${t.border}`, boxShadow: t.shadowSm,
       marginBottom: 10, overflow: 'hidden',
     }}>
       <button
-        onClick={() => setOpen(v => !v)}
+        onClick={() => { if (!editing) setOpen(v => !v); }}
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           width: '100%', padding: '14px 16px',
-          background: 'none', border: 'none', cursor: 'pointer',
+          background: 'none', border: 'none', cursor: editing ? 'default' : 'pointer',
           WebkitTapHighlightColor: 'transparent',
         }}
       >
@@ -77,16 +193,16 @@ function LogCard({ log, t, isIron, getById }) {
             <div style={{ fontFamily: t.fontUI, fontSize: 11, color: t.inkMute, marginTop: 1 }}>
               {(() => {
                 const d = (log.activityDate ?? log.date)?.toDate?.();
-                const dateStr = d ? `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()} · ` : '';
-                return `${dateStr}${doneSets} serii ukończonych`;
+                const ds = d ? `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()} · ` : '';
+                return `${ds}${doneSets} serii ukończonych`;
               })()}
             </div>
           </div>
         </div>
-        <Icon name={open ? 'chevU' : 'chevD'} size={16} stroke={2} color={t.inkFaint} />
+        {!editing && <Icon name={open ? 'chevU' : 'chevD'} size={16} stroke={2} color={t.inkFaint} />}
       </button>
 
-      {open && (
+      {open && !editing && (
         <div style={{ padding: '0 16px 14px', borderTop: `1px solid ${t.border}` }}>
           {(log.exercises ?? []).map((ex, ei) => {
             const info = getById(ex.exerciseId);
@@ -103,8 +219,181 @@ function LogCard({ log, t, isIron, getById }) {
               </div>
             );
           })}
+
+          <div style={{ borderTop: `1px solid ${t.border}`, marginTop: 14, paddingTop: 12 }}>
+            {confirmDel ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontFamily: t.fontUI, fontSize: 13, color: t.ink, flex: 1 }}>
+                  Usunąć trening?
+                </span>
+                <button
+                  onClick={handleDelete}
+                  disabled={saving}
+                  style={{ ...iconBtnBase, borderColor: t.warn, color: t.warn }}
+                >
+                  {saving ? spinner : 'Usuń'}
+                </button>
+                <button onClick={() => setConfirmDel(false)} style={iconBtnBase}>
+                  Anuluj
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <button onClick={openEdit} style={iconBtnBase}>
+                  <Icon name="edit" size={14} stroke={2} />
+                  Edytuj
+                </button>
+                <button
+                  onClick={() => setConfirmDel(true)}
+                  style={{ ...iconBtnBase, color: t.warn, borderColor: t.warn }}
+                >
+                  <Icon name="trash" size={14} stroke={2} />
+                  Usuń
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
+
+      {editing && (
+        <div style={{ padding: '12px 16px 16px', borderTop: `1px solid ${t.border}` }}>
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontFamily: t.fontUI, fontSize: 11, color: t.inkMute, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+              Data treningu
+            </div>
+            <input
+              type="date"
+              value={editDate}
+              onChange={e => setEditDate(e.target.value)}
+              style={{
+                fontFamily: t.fontNum, fontSize: 14,
+                background: t.bgSubtle, border: `1px solid ${t.border}`,
+                borderRadius: t.radiusInput, color: t.ink,
+                padding: '8px 10px', outline: 'none', width: '100%',
+              }}
+            />
+          </div>
+
+          {editExercises.map((ex, exIdx) => {
+            const info = getById(ex.exerciseId);
+            return (
+              <div key={exIdx} style={{ marginBottom: 14 }}>
+                <div style={{ fontFamily: t.fontUI, fontSize: 13, fontWeight: 500, color: t.inkMid, marginBottom: 8 }}>
+                  {info?.name ?? ex.exerciseId}
+                </div>
+                {ex.sets.map((set, setIdx) => {
+                  const isCardio = set.duration !== undefined;
+                  return (
+                    <div key={setIdx} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                      {isCardio ? (
+                        <>
+                          <input
+                            inputMode="decimal"
+                            value={set.duration ?? ''}
+                            onChange={e => updateSet(exIdx, setIdx, 'duration', e.target.value)}
+                            placeholder="min"
+                            style={inp}
+                          />
+                          <span style={{ fontFamily: t.fontUI, fontSize: 12, color: t.inkMute }}>min</span>
+                          <input
+                            inputMode="decimal"
+                            value={set.speed ?? ''}
+                            onChange={e => updateSet(exIdx, setIdx, 'speed', e.target.value)}
+                            placeholder="km/h"
+                            style={inp}
+                          />
+                          <span style={{ fontFamily: t.fontUI, fontSize: 12, color: t.inkMute }}>km/h</span>
+                        </>
+                      ) : (
+                        <>
+                          <input
+                            inputMode="decimal"
+                            value={set.weight ?? ''}
+                            onChange={e => updateSet(exIdx, setIdx, 'weight', e.target.value)}
+                            placeholder="kg"
+                            style={inp}
+                          />
+                          <span style={{ fontFamily: t.fontUI, fontSize: 12, color: t.inkMute }}>×</span>
+                          <input
+                            inputMode="decimal"
+                            value={set.reps ?? ''}
+                            onChange={e => updateSet(exIdx, setIdx, 'reps', e.target.value)}
+                            placeholder="pow"
+                            style={inp}
+                          />
+                        </>
+                      )}
+                      <button
+                        onClick={() => removeSet(exIdx, setIdx)}
+                        style={{
+                          width: 28, height: 28,
+                          borderRadius: isIron ? 3 : 7,
+                          background: 'none', border: `1px solid ${t.border}`,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          cursor: 'pointer', color: t.inkMute, flexShrink: 0,
+                          WebkitTapHighlightColor: 'transparent',
+                        }}
+                      >
+                        <Icon name="x" size={12} stroke={2.5} />
+                      </button>
+                    </div>
+                  );
+                })}
+                <button
+                  onClick={() => addSet(exIdx)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    padding: '4px 10px', borderRadius: isIron ? 3 : 7,
+                    border: `1px dashed ${t.border}`, background: 'none',
+                    cursor: 'pointer', fontFamily: t.fontUI, fontSize: 12,
+                    color: t.inkMute, marginTop: 2,
+                    WebkitTapHighlightColor: 'transparent',
+                  }}
+                >
+                  <Icon name="plus" size={12} stroke={2.5} />
+                  Seria
+                </button>
+              </div>
+            );
+          })}
+
+          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+            <button
+              onClick={saveEdit}
+              disabled={saving || !editDate}
+              style={{
+                flex: 1, padding: '10px 0',
+                borderRadius: isIron ? 3 : 10,
+                background: t.accent, border: 'none',
+                color: '#fff', fontFamily: t.fontUI,
+                fontSize: 14, fontWeight: isIron ? 700 : 500,
+                cursor: saving ? 'default' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                opacity: saving ? 0.7 : 1,
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              {saving ? spinner : 'Zapisz'}
+            </button>
+            <button
+              onClick={cancelEdit}
+              disabled={saving}
+              style={{
+                flex: 1, padding: '10px 0',
+                borderRadius: isIron ? 3 : 10,
+                background: 'none', border: `1px solid ${t.border}`,
+                color: t.ink, fontFamily: t.fontUI,
+                fontSize: 14, cursor: 'pointer',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              Anuluj
+            </button>
+          </div>
+        </div>
+      )}
+      <style>{`@keyframes tya-spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
@@ -139,6 +428,14 @@ export function History() {
   };
 
   const isCurrent = weekId === getISOWeekId();
+
+  const handleDelete = (logId) => {
+    setLogs(prev => prev.filter(l => l.id !== logId));
+  };
+
+  const handleUpdate = (logId, updated) => {
+    setLogs(prev => prev.map(l => l.id === logId ? { ...updated } : l));
+  };
 
   return (
     <Screen>
@@ -221,7 +518,17 @@ export function History() {
           </div>
         ) : (
           logs.map(log => (
-            <LogCard key={log.id} log={log} t={t} isIron={isIron} getById={getById} />
+            <LogCard
+              key={log.id}
+              log={log}
+              weekId={weekId}
+              uid={user.uid}
+              t={t}
+              isIron={isIron}
+              getById={getById}
+              onDelete={handleDelete}
+              onUpdate={handleUpdate}
+            />
           ))
         )}
       </div>

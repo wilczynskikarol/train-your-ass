@@ -272,14 +272,16 @@ function exportPDF({ logs, measurements, stats, exerciseMap, from, to }, user) {
 </body>
 </html>`;
 
-  const win = window.open('', '_blank');
-  if (!win) {
-    alert('Zezwól na wyskakujące okna, aby wygenerować PDF.');
-    return;
-  }
-  win.document.write(html);
-  win.document.close();
-  setTimeout(() => { win.focus(); win.print(); }, 300);
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
 export function ReportGenerator() {

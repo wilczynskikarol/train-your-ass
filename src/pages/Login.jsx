@@ -1,6 +1,5 @@
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { Icon } from '../components/ui/Icon';
 import { Button } from '../components/ui/Button';
 
 export function Login() {
@@ -16,16 +15,11 @@ export function Login() {
       alignItems: 'center', justifyContent: 'center',
       padding: '24px 32px',
     }}>
-      {/* Logo */}
-      <div style={{
-        width: 56, height: 56,
-        borderRadius: isIron ? 12 : 16,
-        background: t.ink,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: t.bg, marginBottom: 20,
-      }}>
-        <Icon name="barbell" size={28} stroke={2} />
-      </div>
+      <img
+        src="/logo.png"
+        alt="TrainYourAss"
+        style={{ width: 96, height: 96, marginBottom: 16, borderRadius: isIron ? 18 : 24 }}
+      />
 
       <h1 style={{
         fontFamily: t.fontDisplay,

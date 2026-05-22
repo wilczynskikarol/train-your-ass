@@ -8,6 +8,73 @@ import { Button } from '../components/ui/Button';
 import { ActiveWorkout } from '../components/workout/ActiveWorkout';
 import { PlanEditor } from '../components/workout/PlanEditor';
 
+function StartSheet({ plan, onConfirm, onClose, t, isIron }) {
+  const today = new Date().toISOString().split('T')[0];
+  const [dateStr, setDateStr] = useState(today);
+
+  const handleStart = () => {
+    const date = new Date(dateStr + 'T12:00:00');
+    onConfirm(plan.id, date);
+  };
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0,
+      background: 'rgba(0,0,0,0.5)',
+      display: 'flex', alignItems: 'flex-end',
+      zIndex: 100,
+    }}>
+      <div style={{
+        width: '100%',
+        background: t.surface,
+        borderRadius: `${t.radiusCard} ${t.radiusCard} 0 0`,
+        padding: '24px 20px',
+        paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <h3 style={{
+            fontFamily: t.fontDisplay,
+            fontSize: isIron ? 18 : 22,
+            fontWeight: isIron ? 700 : 500,
+            color: t.ink, margin: 0,
+            textTransform: isIron ? 'uppercase' : 'none',
+          }}>
+            {plan.name}
+          </h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.inkMid, padding: 4 }}>
+            <Icon name="x" size={20} stroke={2} />
+          </button>
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontFamily: t.fontUI, fontSize: 11, color: t.inkMute, marginBottom: 6 }}>
+            Data treningu
+          </div>
+          <input
+            type="date"
+            value={dateStr}
+            max={today}
+            onChange={e => setDateStr(e.target.value)}
+            style={{
+              width: '100%', height: 48, boxSizing: 'border-box',
+              background: t.bgSubtle, border: `1px solid ${t.border}`,
+              borderRadius: t.radiusInput,
+              fontFamily: t.fontUI, fontSize: 16,
+              color: t.ink, padding: '0 12px', outline: 'none',
+              cursor: 'pointer',
+            }}
+          />
+        </div>
+
+        <Button variant="accent" size="lg" onClick={handleStart} style={{ width: '100%' }}>
+          <Icon name="barbell" size={16} stroke={2} />
+          {isIron ? 'ZACZNIJ TRENING' : 'Zacznij trening'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function PlanCard({ plan, onStart, onEdit, t, isIron }) {
   const hasExercises = plan.exercises?.length > 0;
   return (
@@ -76,9 +143,8 @@ function PlanCard({ plan, onStart, onEdit, t, isIron }) {
         <Button
           variant={hasExercises ? 'accent' : 'ghost'}
           size="md"
-          onClick={() => hasExercises ? onStart(plan.id) : onEdit(plan.id)}
+          onClick={() => hasExercises ? onStart(plan) : onEdit(plan.id)}
           style={{ width: '100%' }}
-          disabled={false}
         >
           {hasExercises ? (
             <>
@@ -103,21 +169,23 @@ export function Workout() {
   const location = useLocation();
   const isIron = t.key === 'iron';
 
-  const { plans, plansLoading, isActive, activeLog, startWorkout } = useWorkout();
+  const { plans, plansLoading, isActive, startWorkout } = useWorkout();
   const [editingPlanId, setEditingPlanId] = useState(null);
   const [starting, setStarting] = useState(false);
+  const [startingPlan, setStartingPlan] = useState(null);
 
   useEffect(() => {
     if (location.state?.planId && !isActive && !plansLoading) {
-      const planId = location.state.planId;
+      const plan = plans.find(p => p.id === location.state.planId);
       navigate(location.pathname, { replace: true, state: {} });
-      handleStart(planId);
+      if (plan) setStartingPlan(plan);
     }
   }, [location.state, plansLoading]);
 
-  const handleStart = async (planId) => {
+  const handleConfirm = async (planId, date) => {
+    setStartingPlan(null);
     setStarting(true);
-    await startWorkout(planId);
+    await startWorkout(planId, date);
     setStarting(false);
   };
 
@@ -169,7 +237,7 @@ export function Workout() {
               <PlanCard
                 key={plan.id}
                 plan={plan}
-                onStart={handleStart}
+                onStart={setStartingPlan}
                 onEdit={setEditingPlanId}
                 t={t}
                 isIron={isIron}
@@ -178,6 +246,16 @@ export function Workout() {
           </div>
         )}
       </div>
+
+      {startingPlan && (
+        <StartSheet
+          plan={startingPlan}
+          onConfirm={handleConfirm}
+          onClose={() => setStartingPlan(null)}
+          t={t}
+          isIron={isIron}
+        />
+      )}
     </Screen>
   );
 }

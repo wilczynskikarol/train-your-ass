@@ -7,7 +7,14 @@ import { Screen } from '../components/ui/Screen';
 import { Icon } from '../components/ui/Icon';
 
 function SetChip({ set, t, isIron }) {
-  if (!set.weight && !set.reps) return null;
+  const isCardio = set.duration !== undefined;
+  if (!isCardio && !set.weight && !set.reps) return null;
+  if (isCardio && !set.duration && !set.speed) return null;
+
+  const label = isCardio
+    ? `${set.duration ?? '—'}min${set.speed ? ` @${set.speed}km/h` : ''}${set.incline ? ` ${set.incline}%` : ''}`
+    : `${set.weight ?? '—'}×${set.reps ?? '—'}`;
+
   return (
     <span style={{
       fontFamily: t.fontNum, fontSize: 12,
@@ -17,7 +24,7 @@ function SetChip({ set, t, isIron }) {
       borderRadius: isIron ? 3 : 8,
       padding: '2px 7px',
     }}>
-      {set.weight ?? '—'}×{set.reps ?? '—'}
+      {label}
     </span>
   );
 }
@@ -68,7 +75,11 @@ function LogCard({ log, t, isIron, getById }) {
               Trening {log.planId}
             </div>
             <div style={{ fontFamily: t.fontUI, fontSize: 11, color: t.inkMute, marginTop: 1 }}>
-              {doneSets} serii ukończonych
+              {(() => {
+                const d = (log.activityDate ?? log.date)?.toDate?.();
+                const dateStr = d ? `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()} · ` : '';
+                return `${dateStr}${doneSets} serii ukończonych`;
+              })()}
             </div>
           </div>
         </div>

@@ -4,7 +4,7 @@ import { useAuth } from './AuthContext';
 import {
   getWorkoutPlans, saveWorkoutPlan,
   getWorkoutLog, createWorkoutLog, updateWorkoutLog,
-  getISOWeekId, getPrevWeekId,
+  getInProgressLog, getISOWeekId, getPrevWeekId,
 } from '../firebase/helpers';
 
 const WorkoutContext = createContext(null);
@@ -27,7 +27,7 @@ export function WorkoutProvider({ children }) {
 
   useEffect(() => {
     if (!user) return;
-    getWorkoutPlans(user.uid).then(loaded => {
+    getWorkoutPlans(user.uid).then(async (loaded) => {
       if (loaded.length) {
         const sorted = ['A', 'B', 'C'].map(id =>
           loaded.find(p => p.id === id) ?? DEFAULT_PLANS.find(p => p.id === id)
@@ -35,6 +35,15 @@ export function WorkoutProvider({ children }) {
         setPlans(sorted);
       }
       setPlansLoading(false);
+      const weekId = getISOWeekId();
+      const inProgress = await getInProgressLog(user.uid, weekId);
+      if (inProgress) {
+        setActiveLog(inProgress);
+        setLogRef({ weekId, logId: inProgress.id });
+        const prevWeekId = getPrevWeekId(weekId);
+        const prev = await getWorkoutLog(user.uid, prevWeekId, inProgress.planId);
+        setPrevLog(prev);
+      }
     });
   }, [user?.uid]);
 
@@ -44,18 +53,18 @@ export function WorkoutProvider({ children }) {
     setPlans(prev => prev.map(p => p.id === planId ? { ...p, ...data } : p));
   }, [user]);
 
-  const startWorkout = useCallback(async (planId) => {
+  const startWorkout = useCallback(async (planId, date = new Date()) => {
     if (!user) return;
     const plan = plans.find(p => p.id === planId);
     if (!plan || !plan.exercises?.length) return;
 
-    const weekId     = getISOWeekId();
+    const weekId     = getISOWeekId(date);
     const prevWeekId = getPrevWeekId(weekId);
 
     let existing = await getWorkoutLog(user.uid, weekId, planId);
     let logId;
 
-    if (existing) {
+    if (existing && !existing.completed) {
       logId = existing.id;
       setActiveLog(existing);
     } else {
@@ -64,12 +73,12 @@ export function WorkoutProvider({ children }) {
         weekId,
         exercises: plan.exercises.map(ex => ({
           exerciseId: ex.exerciseId,
-          sets: Array.from({ length: ex.sets }, () => ({
-            reps: null, weight: null, done: false,
-          })),
+          sets: ex.type === 'cardio'
+            ? [{ duration: null, machine: '', speed: null, incline: null, done: false }]
+            : Array.from({ length: ex.sets ?? 3 }, () => ({ reps: null, weight: null, done: false })),
         })),
       };
-      const ref = await createWorkoutLog(user.uid, weekId, logData);
+      const ref = await createWorkoutLog(user.uid, weekId, logData, date);
       logId = ref.id;
       setActiveLog({ id: logId, ...logData });
     }
@@ -138,7 +147,21 @@ export function WorkoutProvider({ children }) {
       await updateWorkoutLog(user.uid, logRef.weekId, logRef.logId, {
         exercises: activeLog.exercises,
         completed: true,
+        status: 'completed',
         completedAt: serverTimestamp(),
+      });
+    }
+    setActiveLog(null);
+    setLogRef(null);
+    setExIdx(0);
+    setPrevLog(null);
+  }, [user, logRef, activeLog]);
+
+  const suspendWorkout = useCallback(async () => {
+    clearTimeout(saveTimer.current);
+    if (user && logRef && activeLog) {
+      await updateWorkoutLog(user.uid, logRef.weekId, logRef.logId, {
+        exercises: activeLog.exercises,
       });
     }
     setActiveLog(null);
@@ -161,7 +184,7 @@ export function WorkoutProvider({ children }) {
       startWorkout,
       updateSet, addSet,
       nextExercise, prevExercise,
-      finishWorkout,
+      finishWorkout, suspendWorkout,
       getPrevSets,
     }}>
       {children}

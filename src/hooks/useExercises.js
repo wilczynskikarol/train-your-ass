@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { getCustomExercises, addCustomExercise, deleteCustomExercise } from '../firebase/helpers';
+import { getCustomExercises, addCustomExercise, updateCustomExercise, deleteCustomExercise } from '../firebase/helpers';
 import localDB from '../data/exerciseDB.json';
 
 export const CATEGORIES = [
   'Wszystkie', 'Klatka', 'Plecy', 'Barki', 'Biceps', 'Triceps',
-  'Nogi', 'Core', 'Pełne ciało',
+  'Nogi', 'Core', 'Pełne ciało', 'Kardio',
 ];
 
 export function useExercises() {
@@ -55,6 +55,12 @@ export function useExercises() {
     return newEx;
   }, [user]);
 
+  const updateCustom = useCallback(async (id, data) => {
+    if (!user) return;
+    await updateCustomExercise(user.uid, id, data);
+    setCustom(prev => prev.map(e => e.id === id ? { ...e, ...data } : e));
+  }, [user]);
+
   const removeCustom = useCallback(async (id) => {
     if (!user) return;
     await deleteCustomExercise(user.uid, id);
@@ -65,6 +71,6 @@ export function useExercises() {
     allExercises, filtered, customLoading,
     query, setQuery,
     category, setCategory,
-    getById, addCustom, removeCustom,
+    getById, addCustom, updateCustom, removeCustom,
   };
 }

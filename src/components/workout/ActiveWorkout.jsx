@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useWorkout } from '../../hooks/useWorkout';
 import { useExercises } from '../../hooks/useExercises';
+import { useExerciseNotes } from '../../hooks/useExerciseNotes';
 import { Icon } from '../ui/Icon';
 import { Button } from '../ui/Button';
 import { SetRow } from './SetRow';
+import { CardioRow } from './CardioRow';
 
 function ProgressDots({ total, current, t, isIron }) {
   return (
@@ -31,10 +33,11 @@ export function ActiveWorkout() {
   const {
     activeLog, exIdx, currentPlan,
     updateSet, addSet, nextExercise, prevExercise,
-    finishWorkout, getPrevSets,
+    finishWorkout, suspendWorkout, getPrevSets,
   } = useWorkout();
 
   const { getById } = useExercises();
+  const { getNote, saveNote } = useExerciseNotes();
   const [confirmFinish, setConfirmFinish] = useState(false);
 
   if (!activeLog) return null;
@@ -44,20 +47,25 @@ export function ActiveWorkout() {
   const exerciseInfo = getById(exData?.exerciseId);
   const prevSets = getPrevSets(exData?.exerciseId);
   const isLast = exIdx === exercises.length - 1;
-
-  const doneSets = exData?.sets?.filter(s => s.done).length ?? 0;
-  const totalSets = exData?.sets?.length ?? 0;
+  const isCardio = exerciseInfo?.type === 'cardio' || exData?.sets?.[0]?.duration !== undefined;
 
   const planExercise = currentPlan?.exercises?.[exIdx];
-  const repHint = planExercise?.repsMin && planExercise?.repsMax
+  const repHint = !isCardio && planExercise?.repsMin && planExercise?.repsMax
     ? `${planExercise.repsMin}–${planExercise.repsMax} powt.`
     : planExercise?.reps
       ? `${planExercise.reps} powt.`
       : null;
 
+  const note = getNote(exData?.exerciseId);
+
   const handleFinish = async () => {
     await finishWorkout();
     navigate('/');
+  };
+
+  const handleSuspend = async () => {
+    await suspendWorkout();
+    navigate('/workout');
   };
 
   return (
@@ -100,7 +108,7 @@ export function ActiveWorkout() {
           {exerciseInfo?.name ?? exData?.exerciseId}
         </h2>
         {(repHint || exerciseInfo?.muscles?.[0]) && (
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
             {repHint && (
               <span style={{
                 fontFamily: t.fontUI, fontSize: 12, color: t.accent,
@@ -122,10 +130,25 @@ export function ActiveWorkout() {
             ))}
           </div>
         )}
+
+        <textarea
+          placeholder="Notatka do ćwiczenia…"
+          value={note}
+          onChange={e => saveNote(exData?.exerciseId, e.target.value)}
+          rows={2}
+          style={{
+            width: '100%', boxSizing: 'border-box',
+            background: t.bgSubtle, border: `1px solid ${t.border}`,
+            borderRadius: t.radiusInput,
+            fontFamily: t.fontUI, fontSize: 13, color: t.ink,
+            padding: '8px 12px', outline: 'none', resize: 'none',
+            lineHeight: 1.4,
+          }}
+        />
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 0' }}>
-        {prevSets && (
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px 0' }}>
+        {prevSets && !isCardio && (
           <div style={{
             display: 'flex', gap: 10,
             padding: '8px 12px', marginBottom: 12,
@@ -143,44 +166,56 @@ export function ActiveWorkout() {
           </div>
         )}
 
-        <div style={{
-          display: 'flex', alignItems: 'center',
-          padding: '0 0 8px',
-          borderBottom: `1px solid ${t.border}`,
-          marginBottom: 4,
-        }}>
-          <span style={{ fontFamily: t.fontUI, fontSize: 11, color: t.inkFaint, width: 28 }}>#</span>
-          {prevSets && (
-            <span style={{ fontFamily: t.fontUI, fontSize: 11, color: t.inkFaint, width: 64, textAlign: 'center' }}>Poprz.</span>
-          )}
-          <span style={{ fontFamily: t.fontUI, fontSize: 11, color: t.inkFaint, marginLeft: prevSets ? 10 : 0 }}>Ciężar</span>
-          <span style={{ fontFamily: t.fontUI, fontSize: 11, color: t.inkFaint, marginLeft: 40 }}>Powt.</span>
-        </div>
+        {!isCardio && (
+          <div style={{
+            display: 'flex', alignItems: 'center',
+            padding: '0 0 8px',
+            borderBottom: `1px solid ${t.border}`,
+            marginBottom: 4,
+          }}>
+            <span style={{ fontFamily: t.fontUI, fontSize: 11, color: t.inkFaint, width: 28 }}>#</span>
+            {prevSets && (
+              <span style={{ fontFamily: t.fontUI, fontSize: 11, color: t.inkFaint, width: 64, textAlign: 'center' }}>Poprz.</span>
+            )}
+            <span style={{ fontFamily: t.fontUI, fontSize: 11, color: t.inkFaint, marginLeft: prevSets ? 10 : 0 }}>Ciężar</span>
+            <span style={{ fontFamily: t.fontUI, fontSize: 11, color: t.inkFaint, marginLeft: 40 }}>Powt.</span>
+          </div>
+        )}
 
-        {(exData?.sets ?? []).map((s, si) => (
-          <SetRow
-            key={si}
-            setIndex={si}
-            set={s}
-            prevSet={prevSets?.[si] ?? null}
-            onUpdate={(updates) => updateSet(exIdx, si, updates)}
-          />
-        ))}
+        {(exData?.sets ?? []).map((s, si) =>
+          isCardio ? (
+            <CardioRow
+              key={si}
+              set={s}
+              onUpdate={(updates) => updateSet(exIdx, si, updates)}
+            />
+          ) : (
+            <SetRow
+              key={si}
+              setIndex={si}
+              set={s}
+              prevSet={prevSets?.[si] ?? null}
+              onUpdate={(updates) => updateSet(exIdx, si, updates)}
+            />
+          )
+        )}
 
-        <button
-          onClick={() => addSet(exIdx)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            marginTop: 8, padding: '10px 0',
-            background: 'none', border: 'none',
-            fontFamily: t.fontUI, fontSize: 13, color: t.inkMute,
-            cursor: 'pointer',
-            WebkitTapHighlightColor: 'transparent',
-          }}
-        >
-          <Icon name="plus" size={16} stroke={2.5} />
-          Dodaj serię
-        </button>
+        {!isCardio && (
+          <button
+            onClick={() => addSet(exIdx)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              marginTop: 8, padding: '10px 0',
+              background: 'none', border: 'none',
+              fontFamily: t.fontUI, fontSize: 13, color: t.inkMute,
+              cursor: 'pointer',
+              WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            <Icon name="plus" size={16} stroke={2.5} />
+            Dodaj serię
+          </button>
+        )}
       </div>
 
       <div style={{
@@ -251,6 +286,9 @@ export function ActiveWorkout() {
               <Button variant="accent" size="lg" onClick={handleFinish} style={{ width: '100%' }}>
                 <Icon name="check" size={18} stroke={2.5} />
                 {isIron ? 'TAK, ZAKOŃCZ' : 'Tak, zakończ'}
+              </Button>
+              <Button variant="ghost" size="md" onClick={handleSuspend} style={{ width: '100%' }}>
+                {isIron ? 'ZAPISZ I WYJDŹ' : 'Zapisz i wyjdź'}
               </Button>
               <Button variant="ghost" size="md" onClick={() => setConfirmFinish(false)} style={{ width: '100%' }}>
                 {isIron ? 'WRÓĆ DO TRENINGU' : 'Wróć do treningu'}

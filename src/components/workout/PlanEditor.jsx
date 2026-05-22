@@ -129,71 +129,73 @@ function ExercisePickerSheet({ onAdd, onClose, t, isIron }) {
             <div style={{ fontFamily: t.fontUI, fontSize: 13, fontWeight: 600, color: t.ink, marginBottom: 12 }}>
               {selectedEx?.name}
             </div>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16 }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontFamily: t.fontUI, fontSize: 11, color: t.inkMute, marginBottom: 4 }}>Serie</div>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  value={sets}
-                  min={1} max={10}
-                  onChange={e => setSets(Number(e.target.value))}
-                  style={{
-                    width: '100%', height: 40,
-                    background: t.bgSubtle, border: `1px solid ${t.border}`,
-                    borderRadius: t.radiusInput,
-                    fontFamily: t.fontNum, fontSize: 16, fontWeight: 600,
-                    color: t.ink, textAlign: 'center', outline: 'none',
-                  }}
-                />
+            {selectedEx?.type !== 'cardio' && (
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontFamily: t.fontUI, fontSize: 11, color: t.inkMute, marginBottom: 4 }}>Serie</div>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    value={sets}
+                    min={1} max={10}
+                    onChange={e => setSets(Number(e.target.value))}
+                    style={{
+                      width: '100%', height: 40,
+                      background: t.bgSubtle, border: `1px solid ${t.border}`,
+                      borderRadius: t.radiusInput,
+                      fontFamily: t.fontNum, fontSize: 16, fontWeight: 600,
+                      color: t.ink, textAlign: 'center', outline: 'none',
+                    }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontFamily: t.fontUI, fontSize: 11, color: t.inkMute, marginBottom: 4 }}>Powt. min</div>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    value={repsMin}
+                    min={1} max={30}
+                    onChange={e => setRepsMin(Number(e.target.value))}
+                    style={{
+                      width: '100%', height: 40,
+                      background: t.bgSubtle, border: `1px solid ${t.border}`,
+                      borderRadius: t.radiusInput,
+                      fontFamily: t.fontNum, fontSize: 16, fontWeight: 600,
+                      color: t.ink, textAlign: 'center', outline: 'none',
+                    }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontFamily: t.fontUI, fontSize: 11, color: t.inkMute, marginBottom: 4 }}>Powt. max</div>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    value={repsMax}
+                    min={1} max={30}
+                    onChange={e => setRepsMax(Number(e.target.value))}
+                    style={{
+                      width: '100%', height: 40,
+                      background: t.bgSubtle, border: `1px solid ${t.border}`,
+                      borderRadius: t.radiusInput,
+                      fontFamily: t.fontNum, fontSize: 16, fontWeight: 600,
+                      color: t.ink, textAlign: 'center', outline: 'none',
+                    }}
+                  />
+                </div>
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontFamily: t.fontUI, fontSize: 11, color: t.inkMute, marginBottom: 4 }}>Powt. min</div>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  value={repsMin}
-                  min={1} max={30}
-                  onChange={e => setRepsMin(Number(e.target.value))}
-                  style={{
-                    width: '100%', height: 40,
-                    background: t.bgSubtle, border: `1px solid ${t.border}`,
-                    borderRadius: t.radiusInput,
-                    fontFamily: t.fontNum, fontSize: 16, fontWeight: 600,
-                    color: t.ink, textAlign: 'center', outline: 'none',
-                  }}
-                />
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontFamily: t.fontUI, fontSize: 11, color: t.inkMute, marginBottom: 4 }}>Powt. max</div>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  value={repsMax}
-                  min={1} max={30}
-                  onChange={e => setRepsMax(Number(e.target.value))}
-                  style={{
-                    width: '100%', height: 40,
-                    background: t.bgSubtle, border: `1px solid ${t.border}`,
-                    borderRadius: t.radiusInput,
-                    fontFamily: t.fontNum, fontSize: 16, fontWeight: 600,
-                    color: t.ink, textAlign: 'center', outline: 'none',
-                  }}
-                />
-              </div>
-            </div>
+            )}
             <Button
               variant="accent"
               size="lg"
               style={{ width: '100%' }}
               onClick={() => {
                 if (!selectedEx) return;
+                const isCardio = selectedEx.type === 'cardio';
                 onAdd({
                   exerciseId: String(selectedEx.id),
                   name: selectedEx.name,
-                  sets,
-                  repsMin,
-                  repsMax,
+                  type: selectedEx.type ?? 'strength',
+                  ...(isCardio ? {} : { sets, repsMin, repsMax }),
                 });
               }}
             >
@@ -299,7 +301,9 @@ export function PlanEditor({ planId, onDone }) {
                 {ex.name}
               </div>
               <div style={{ fontFamily: t.fontUI, fontSize: 11, color: t.inkMute, marginTop: 2 }}>
-                {ex.sets} serie · {ex.repsMin}–{ex.repsMax} powt.
+                {ex.type === 'cardio'
+                  ? 'Kardio'
+                  : `${ex.sets} serie · ${ex.repsMin}–${ex.repsMax} powt.`}
               </div>
             </div>
             <button

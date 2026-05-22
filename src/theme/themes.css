@@ -1,0 +1,125 @@
+/* ════════════════════════════════════════════════════════
+   TrainYourAss — design tokens
+   Source: Claude Design handoff „Soft strength × Iron mode"
+   ════════════════════════════════════════════════════════ */
+
+/* ─── Soft strength (F) — ciepłe biele, honey accent ─── */
+.theme-f {
+  --th-bg:            #f7f2ec;
+  --th-bg-subtle:     #efe8de;
+  --th-surface:       #ffffff;
+  --th-surface-alt:   #faf6f1;
+
+  --th-ink:           #2b2521;
+  --th-ink-mid:       #5a4f47;
+  --th-ink-mute:      #9a8e82;
+  --th-ink-faint:     #c5b8a9;
+
+  --th-border:        rgba(43,37,33,0.08);
+  --th-border-strong: rgba(43,37,33,0.16);
+
+  --th-accent:        #c98a4b;
+  --th-accent-deep:   #a86d33;
+  --th-accent-soft:   #e8c89a;
+  --th-accent-tint:   #f4e6d2;
+
+  --th-success:       #7a9468;
+  --th-warn:          #c4814b;
+
+  --font-display:     'Fraunces', 'Cormorant Garamond', Georgia, serif;
+  --font-ui:          'Inter', -apple-system, system-ui, sans-serif;
+  --font-num:         'Inter', -apple-system, system-ui, sans-serif;
+
+  --radius-card:      22px;
+  --radius-input:     14px;
+  --radius-pill:      9999px;
+
+  --shadow-sm:        0 1px 2px rgba(43,37,33,0.04), 0 1px 3px rgba(43,37,33,0.03);
+  --shadow-md:        0 2px 6px rgba(43,37,33,0.05), 0 8px 24px rgba(43,37,33,0.05);
+  --shadow-lg:        0 4px 12px rgba(43,37,33,0.06), 0 16px 48px rgba(43,37,33,0.08);
+}
+
+/* Soft — akcenty alternatywne */
+.theme-f[data-accent="mauve"] {
+  --th-accent:      #a87c8f;
+  --th-accent-soft: #d8c0ca;
+  --th-accent-tint: #f1e5ea;
+}
+.theme-f[data-accent="sage"] {
+  --th-accent:      #8a9a7b;
+  --th-accent-soft: #c1cdb6;
+  --th-accent-tint: #e6ece1;
+}
+
+/* ─── Iron mode (M) — głęboka czerń, flat ─────────────── */
+.theme-m {
+  --th-bg:            #0b0b0c;
+  --th-bg-subtle:     #101012;
+  --th-surface:       #161618;
+  --th-surface-alt:   #1d1d20;
+
+  --th-ink:           #f5f5f5;
+  --th-ink-mid:       #a3a3a8;
+  --th-ink-mute:      #6a6a70;
+  --th-ink-faint:     #4a4a4e;
+
+  --th-border:        rgba(255,255,255,0.08);
+  --th-border-strong: rgba(255,255,255,0.18);
+
+  --th-accent:        #ffffff;
+  --th-accent-deep:   #e5e5e5;
+  --th-accent-soft:   #2a2a2d;
+  --th-accent-tint:   #1d1d20;
+
+  --th-success:       #9ecb7a;
+  --th-warn:          #e8a04b;
+
+  --font-display:     'Inter', -apple-system, system-ui, sans-serif;
+  --font-ui:          'Inter', -apple-system, system-ui, sans-serif;
+  --font-num:         'JetBrains Mono', ui-monospace, Menlo, monospace;
+
+  --radius-card:      6px;
+  --radius-input:     4px;
+  --radius-pill:      4px;
+
+  --shadow-sm:        none;
+  --shadow-md:        none;
+  --shadow-lg:        none;
+}
+
+/* Iron — akcenty alternatywne */
+.theme-m[data-accent="green"] {
+  --th-accent:   #2bd96c;
+  --th-success:  #2bd96c;
+}
+.theme-m[data-accent="orange"] {
+  --th-accent:   #ff6b1a;
+}
+.theme-m[data-accent="blue"] {
+  --th-accent:   #3a86ff;
+}
+
+/* ─── Globalne ──────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--th-bg);
+  color: var(--th-ink);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior: none;
+}
+
+/* Ukryj scrollbar ale zachowaj scrollowanie */
+* { scrollbar-width: none; }
+*::-webkit-scrollbar { display: none; }
+
+/* Bezpieczne obszary na iPhone z notchem */
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.safe-top    { padding-top: env(safe-area-inset-top, 0px); }
